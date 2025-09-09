@@ -1,0 +1,208 @@
+# .github/workflows/codex-and-broadcast.yml
+name: Codex Index + Crest Broadcast Ceremony
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-codex-index:
+    name: Regenerate Codex Index
+    runs-on: ubuntu-latest
+    outputs:
+      index_changed: ${{ steps.check_changes.outputs.changed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
+
+      - name: Run Repo Discovery Ceremony
+        run: bash scripts/gh-discovery-mirror.sh
+
+      - name: Check if Codex Index changed
+        id: check_changes
+        run: |
+          if ! git diff --quiet docs/codex-index.md; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit & push Codex Index changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/codex-index.md
+          git commit -m "chore(codex): auto‑update Codex Index [skip ci]"
+          git push origin main
+
+  crest-broadcast:
+    name: Crest Broadcast Ceremony
+    needs: update-codex-index
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python for lineage parsing
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install pyyaml jq
+
+      - name: Identify changed files
+        id: changes
+        run: |
+          echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Parse lineage.yaml for crest IDs and Codex links
+        id: lineage
+        run: |
+          python - <<'EOF'
+          import yaml, os, json
+          files = os.environ.get('FILES', '').split()
+          with open('lineage.yaml') as f:
+              lineage = yaml.safe_load(f)
+          matched = []
+          codex_base = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/blob/main/docs/architecture/crest-lineage-map.md"
+          for section, items in lineage.get('lineage', {}).items():
+              for path, meta in items.items():
+                  if any(path in f for f in files):
+                      matched.append({
+                          'crest_id': meta['crest_id'],
+                          'purpose': meta['purpose'],
+                          'triggers': meta.get('triggers', []),
+                          'codex_link': codex_base + f"#crest-{meta['crest_id'].lower()}"
+                      })
+          print(f"::set-output name=matched::{json.dumps(matched)}")
+          EOF
+        env:
+          FILES: ${{ steps.changes.outputs.files }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Calculate Ceremonial Impact Score
+        id: impact
+        run: |
+          matched='${{ steps.lineage.outputs.matched }}'
+          count=$(echo "$matched" | jq length)
+          domains=$(echo "$matched" | jq -r '.[].crest_id' | cut -d'-' -f1 | sort -u | wc -l)
+          score=1
+          if [ "$count" -eq 1 ] && [ "$domains" -eq 1 ]; then score=1; fi
+          if [ "$count" -le 2 ] && [ "$domains" -eq 1 ]; then score=2; fi
+          if [ "$count" -le 3 ] && [ "$domains" -ge 2 ]; then score=3; fi
+          if [ "$count" -le 5 ] && [ "$domains" -ge 2 ]; then score=4; fi
+          if [ "$count" -gt 5 ] || (echo "$matched" | grep -q 'SVC-LEDGER' && echo "$matched" | grep -q 'COMP-'); then score=5; fi
+          echo "score=$score" >> $GITHUB_OUTPUT
+
+      - name: Build ceremonial summary table
+        id: summary
+        run: |
+          echo "summary_table=$(echo '${{ steps.lineage.outputs.matched }}' | jq -r '["| Crest ID | Purpose | Triggers | Codex Link |", "|----------|---------|----------|------------|"] + map("| \(.crest_id) | \(.purpose) | \(.triggers | join(", ")) | [View](\(.codex_link)) |") | join("\n")')" >> $GITHUB_OUTPUT
+
+      - name: Update Codex Impact Scores Ledger
+        run: |
+          SCORES_FILE=".codex-impact-scores.json"
+          crest_changes='${{ steps.lineage.outputs.matched }}'
+
+          # If ledger exists, load it; else start fresh
+          if [ -f "$SCORES_FILE" ]; then
+            cp "$SCORES_FILE" scores_tmp.json
+          else
+            echo "{}" > scores_tmp.json
+          fi
+
+          # Update scores for changed crests
+          echo "$crest_changes" | jq -c '.[]' | while read -r crest; do
+            cid=$(echo "$crest" | jq -r '.crest_id')
+            score="${{ steps.impact.outputs.score }}"
+            jq --arg cid "$cid" --arg score "$score" '.[$cid] = $score' scores_tmp.json > scores_tmp2.json
+            mv scores_tmp2.json scores_tmp.json
+          done
+
+          mv scores_tmp.json "$SCORES_FILE"
+
+          # Commit and push ledger changes
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$SCORES_FILE"
+          git commit -m "chore(codex): update impact scores ledger [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+      - name: Append to Codex Change History
+        run: |
+          HISTORY_FILE="docs/codex-history.md"
+          crest_changes='${{ steps.lineage.outputs.matched }}'
+          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          today=$(date +%Y-%m-%d)
+
+          # Ensure history file exists
+          if [ ! -f "$HISTORY_FILE" ]; then
+            echo "# Codex Change History" > "$HISTORY_FILE"
+            echo "" >> "$HISTORY_FILE"
+            echo "| Date | Crest ID | Old → New | Trigger(s) | Commit |" >> "$HISTORY_FILE"
+            echo "|------|----------|-----------|------------|--------|" >> "$HISTORY_FILE"
+          fi
+
+          # Append changes
+          echo "$crest_changes" | jq -c '.[]' | while read -r crest; do
+            cid=$(echo "$crest" | jq -r '.crest_id')
+            triggers=$(echo "$crest" | jq -r '.triggers | join(", ")')
+            old_score="?"
+            if [ -f ".codex-impact-scores.json" ]; then
+              old_score=$(jq -r --arg cid "$cid" '.[$cid] // "?"' .codex-impact-scores.json)
+            fi
+            new_score="${{ steps.impact.outputs.score }}"
+            echo "| $today | $cid | $old_score → $new_score | $triggers | [View]($commit_url) |" >> "$HISTORY_FILE"
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$HISTORY_FILE"
+          git commit -m "chore(codex): append change history [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+
+      - name: Post to Slack (via Incoming Webhook)
+        if: steps.lineage.outputs.matched != '[]'
+        run: |
+          badge_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/assets/impact-crests/impact-${{ steps.impact.outputs.score }}.svg"
+          payload=$(cat <<EOP
+          {
+            "blocks": [
+              {
+                "type": "image",
+                "image_url": "${badge_url}",
+                "alt_text": "Ceremonial Impact Score Badge"
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Crest Broadcast Ceremony* :tada:\n*Ceremonial Impact Score:* ${{ steps.impact.outputs.score }}/5\n<${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}|View Commit>\n\n*Ceremonial Summary:*\n\`\`\`\n${{ steps.summary.outputs.summary_table }}\n\`\`\`"
+                }
+              }
+            ]
+          }
+          EOP
+          )
+          curl -X POST -H 'Content-type: application/json' \
+               --data "$payload" \
+               ${{ secrets.SLACK
