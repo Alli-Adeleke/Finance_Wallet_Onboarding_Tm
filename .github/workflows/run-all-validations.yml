@@ -29,11 +29,14 @@ jobs:
         run: |
           declare -A run_ids
           workflows=("Node.js CI" "Python CI" "Lint Markdown & YAML" "Codespaces Prebuild")
+
           for wf in "${workflows[@]}"; do
             gh workflow run "$wf" --ref main
-            sleep 5  # Give GitHub a moment to register the run
+            sleep 5  # Give GitHub time to register the run
+            id=$(gh run list --workflow "$wf" --limit 1 --json databaseId --jq '.[0].databaseId')
             run_ids["$wf"]=$id
           done
+
           for wf in "${!run_ids[@]}"; do
             echo "$wf:${run_ids[$wf]}" >> run_ids.txt
           done
@@ -59,7 +62,6 @@ jobs:
                 [[ "$conclusion" != "success" ]] && icon="❌" && failed=1
                 summary+="| [${wf}](${url}) | ${icon} ${conclusion} |\n"
 
-                # Update comment if comment_id is provided
                 if [[ -n "$comment_id" ]]; then
                   crest="🟡"; verdict="Validation in progress..."
                   [[ $failed -ne 0 ]] && crest="🔴" && verdict="Some workflows failing..."
@@ -111,4 +113,4 @@ jobs:
       - name: Fail if any workflow failed
         if: steps.poll.outputs.failed == '1'
         run: exit 1
-        shell: bash 
+        shell: bash
