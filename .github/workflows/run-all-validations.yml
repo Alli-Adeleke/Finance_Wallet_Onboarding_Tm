@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           declare -A run_ids
-          workflows=("Node.js CI" "Python CI" "Lint Markdown & YAML" "Codespaces Prebuild")
+          workflows=("CI" "Pages & CodeQL" "Deploy GitHub Pages with GUI Bootstrap" "Codespaces Prebuild" "CodeQL" "pages-build-deployment")
 
           for wf in "${workflows[@]}"; do
             gh workflow run "$wf" --ref main
