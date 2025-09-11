@@ -1,23 +1,12 @@
 name: Run All CI Validations
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-
-on:
   workflow_dispatch:
     inputs:
       comment_id:
         description: "ID of the PR/commit comment to update (optional)"
         required: false
         default: ""
-  workflow_call:
-    inputs:
-      comment_id:
-        required: false
-        type: string
 
 jobs:
   validate-ci:
@@ -38,10 +27,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           declare -A run_ids
-          workflows=("CI" "Pages & CodeQL" "Deploy GitHub Pages with GUI Bootstrap" "Codespaces Prebuild" "CodeQL" "pages-build-deployment")
+          workflows=("CI" "Pages & CodeQL" "Deploy GitHub Pages with GUI Bootstrap" "Codespaces Prebuild" "pages-build-deployment")
 
           for wf in "${workflows[@]}"; do
-            gh workflow run "$wf" --ref main
+            dispatchable=$(gh workflow view "$wf" --yaml | grep -c "workflow_dispatch")
+            if [[ "$dispatchable" -eq 0 ]]; then
+              echo "⚠️ '$wf' does not support workflow_dispatch — skipping"
+              continue
+            fi
+
+            gh workflow run "$wf" --ref main || {
+              echo "❌ Failed to dispatch '$wf' — skipping"
+              continue
+            }
+
             sleep 5
             id=$(gh run list --workflow "$wf" --limit 1 --json databaseId --jq '.[0].databaseId')
             run_ids["$wf"]=$id
@@ -58,7 +57,7 @@ jobs:
         run: |
           failed=0
           summary="### CI Validation Results\n\n| Workflow | Status |\n|----------|--------|\n"
-          comment_id="${{ github.event.inputs.comment_id || inputs.comment_id }}"
+          comment_id="${{ github.event.inputs.comment_id }}"
 
           while read line; do
             wf="${line%%:*}"
@@ -95,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          comment_id="${{ github.event.inputs.comment_id || inputs.comment_id }}"
+          comment_id="${{ github.event.inputs.comment_id }}"
           if [[ -f summary.md ]]; then
             body="$(cat summary.md)"
             if [[ "${{ steps.poll.outputs.failed }}" == "0" ]]; then
@@ -123,3 +122,4 @@ jobs:
       - name: Fail if any workflow failed
         if: steps.poll.outputs.failed == '1'
         run: exit 1
+  
