@@ -22,23 +22,16 @@ jobs:
         run: |
           echo "🔍 Checking live Pages site..."
           URL="https://alli-adeleke.github.io/Finance_Wallet_Onboarding_Tm/?cachebust=$(date +%s)"
-          echo "Fetching: $URL"
           HEADERS=$(curl -sI "$URL")
           echo "$HEADERS"
 
-          # Extract Last-Modified date from headers
           LAST_MODIFIED=$(echo "$HEADERS" | grep -i "Last-Modified" | cut -d: -f2- | xargs)
-          echo "Last-Modified: $LAST_MODIFIED"
-
-          # Convert both times to epoch seconds
           LAST_MODIFIED_EPOCH=$(date -d "$LAST_MODIFIED" +%s)
           PUSH_TIME_EPOCH=$(date -d "$(git log -1 --format=%cI)" +%s)
 
           echo "Push time: $(git log -1 --format=%cI)"
-          echo "Push epoch: $PUSH_TIME_EPOCH"
-          echo "Last-Modified epoch: $LAST_MODIFIED_EPOCH"
+          echo "Last-Modified: $LAST_MODIFIED"
 
-          # Fail if Last-Modified is older than push time
           if [ "$LAST_MODIFIED_EPOCH" -lt "$PUSH_TIME_EPOCH" ]; then
             echo "❌ Pages site is not yet updated with the latest push."
             exit 1
