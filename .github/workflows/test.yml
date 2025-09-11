@@ -1,0 +1,47 @@
+name: CI & Validation Sweep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧿 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+
+      - name: 📦 Install dependencies
+        run: yarn install
+
+      - name: 🧪 Run test
+        run: yarn test
+
+      - name: 🔍 Run lint
+        run: yarn lint
+
+      - name: 🏗️ Run build
+        run: yarn build
+
+      - name: 💳 Validate payments module
+        run: yarn validate:payments
+
+      - name: 🛡️ Regenerate GUI
+        run: yarn regen:gui
+
+      - name: 🧭 Regenerate Admin Console
+        run: yarn regen:admin
+
+      - name: 🎭 Regenerate Roles
+        run: yarn regen:roles
+
+      - name: 📘 Log Codex Entry
+        run: yarn codex:log
