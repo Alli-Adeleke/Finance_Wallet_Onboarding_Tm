@@ -12,6 +12,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
       - name: Verify required files exist
         run: |
           required_paths=(
@@ -30,6 +36,11 @@ jobs:
               echo "✅ Found: $path"
             fi
           done
+
+      - name: Validate TypeScript build
+        run: |
+          npm install
+          npm run build
 
       - name: Validate TypeScript build
         run: |
