@@ -13,9 +13,13 @@ on:
         type: string
 
 jobs:
+  jobs:
   validate-ci:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Install GitHub CLI
         run: sudo apt-get install -y gh jq
 
