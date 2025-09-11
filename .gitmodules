@@ -1,0 +1,3 @@
+[submodule "finance-wallet-onboarding"]
+    path = finance-wallet-onboarding
+    url = https://github.com/Alli-Adeleke/finance-wallet-onboarding.git
