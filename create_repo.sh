@@ -77,3 +77,24 @@ jobs:
 EOF
 
 ## Pages Deploy
+cat > .github/workflows/pages.yml <<'EOF'
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm ci || true
+      - name: Build documentation
+        run: npm run build-docs || echo "No docs to build"
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/.vitepress/dist
+EOF
