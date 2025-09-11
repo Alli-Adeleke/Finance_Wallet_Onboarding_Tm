@@ -30,7 +30,8 @@ jobs:
           declare -A run_ids
           workflows=("Node.js CI" "Python CI" "Lint Markdown & YAML" "Codespaces Prebuild")
           for wf in "${workflows[@]}"; do
-            id=$(gh workflow run "$wf" --ref main --json id --jq '.id')
+            gh workflow run "$wf" --ref main
+            sleep 5  # Give GitHub a moment to register the run
             run_ids["$wf"]=$id
           done
           for wf in "${!run_ids[@]}"; do
