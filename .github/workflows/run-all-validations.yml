@@ -1,0 +1,109 @@
+name: Run All CI Validations
+
+on:
+  workflow_dispatch:
+    inputs:
+      comment_id:
+        description: "ID of the PR/commit comment to update (optional)"
+        required: false
+  workflow_call:
+    inputs:
+      comment_id:
+        required: false
+        type: string
+
+jobs:
+  validate-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get install -y gh jq
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth login --with-token <<< "$GH_TOKEN"
+
+      - name: Trigger workflows asynchronously
+        id: trigger
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          declare -A run_ids
+          workflows=("Node.js CI" "Python CI" "Lint Markdown & YAML" "Codespaces Prebuild")
+          for wf in "${workflows[@]}"; do
+            id=$(gh workflow run "$wf" --ref main --json id --jq '.id')
+            run_ids["$wf"]=$id
+          done
+          for wf in "${!run_ids[@]}"; do
+            echo "$wf:${run_ids[$wf]}" >> run_ids.txt
+          done
+
+      - name: Poll workflow results and update comment
+        id: poll
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          failed=0
+          summary="### CI Validation Results\n\n| Workflow | Status |\n|----------|--------|\n"
+          comment_id="${{ github.event.inputs.comment_id || inputs.comment_id }}"
+
+          while read line; do
+            wf="${line%%:*}"
+            id="${line##*:}"
+            url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${id}"
+            while :; do
+              status=$(gh run view "$id" --json status --jq '.status')
+              conclusion=$(gh run view "$id" --json conclusion --jq '.conclusion')
+              if [[ "$status" == "completed" ]]; then
+                icon="✅"
+                [[ "$conclusion" != "success" ]] && icon="❌" && failed=1
+                summary+="| [${wf}](${url}) | ${icon} ${conclusion} |\n"
+
+                # Update existing comment if comment_id is provided
+                if [[ -n "$comment_id" ]]; then
+                  crest="🟢"; verdict="In progress..."
+                  [[ $failed -ne 0 ]] && crest="🔴" && verdict="Some workflows failing..."
+                  banner="${crest} **Crest Shimmer CI Validation** — ${verdict}\n\n---\n"
+                  gh api \
+                    repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id} \
+                    -X PATCH \
+                    -f body="$banner$summary" >/dev/null || true
+                fi
+                break
+              fi
+              sleep 10
+            done
+          done < run_ids.txt
+
+          echo -e "$summary" > summary.md
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+
+      - name: Finalize comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          comment_id="${{ github.event.inputs.comment_id || inputs.comment_id }}"
+          if [[ "${{ steps.poll.outputs.failed }}" == "0" ]]; then
+            crest="🟢"
+            verdict="All workflows passed"
+          else
+            crest="🔴"
+            verdict="One or more workflows failed"
+          fi
+          banner="${crest} **Crest Shimmer CI Validation** — ${verdict}\n\n---\n"
+          body="$banner$(cat summary.md)"
+
+          if [[ -n "$comment_id" ]]; then
+            gh api \
+              repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id} \
+              -X PATCH \
+              -f body="$body"
+          else
+            gh pr comment "${GITHUB_REF##*/}" --body "$body" || gh commit comment "$GITHUB_SHA" --body "$body"
+          fi
+
+      - name: Fail if any workflow failed
+        if: steps.poll.outputs.failed == '1'
+        run: exit 1

@@ -1,0 +1,104 @@
+name: Toggle Extra CI Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose whether to add, remove, or toggle extra CI workflows"
+        required: true
+        default: "toggle"
+        type: choice
+        options:
+          - toggle
+          - add
+          - remove
+      run_validations:
+        description: "Run CI validations after toggling?"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"           # Run validations synchronously
+          - "false"          # Skip validations
+          - "validate_async" # Trigger validations but don't wait
+
+jobs:
+  toggle-ci:
+    runs-on: ubuntu-latest
+    outputs:
+      run_triggered: ${{ steps.set-output.outputs.run_triggered }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Git sync before changes
+        run: |
+          # Ensure we are on the latest main branch before making changes
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+      - name: Make scripts executable
+        run: chmod +x add_ci_workflows.sh remove_ci_workflows.sh toggle_ci_workflows.sh || true
+
+      - name: Run toggle/add/remove
+        run: |
+          case "${{ github.event.inputs.action }}" in
+            add) ./add_ci_workflows.sh ;;
+            remove) ./remove_ci_workflows.sh ;;
+            toggle) ./toggle_ci_workflows.sh ;;
+          esac
+
+      - name: Commit changes
+        run: |
+          # Configure Git identity for the GitHub Actions bot
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage all changes
+          git add -A
+
+          # Commit if there are changes
+          git commit -m "ci: ${{ github.event.inputs.action }} extra workflows via Actions UI" || echo "No changes to commit"
+
+          # Push changes back to main
+          git push origin main
+
+      - id: set-output
+        run: echo "run_triggered=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+
+  validate-ci-sync:
+    needs: toggle-ci
+    if: ${{ (needs.toggle-ci.outputs.run_triggered == 'add' || needs.toggle-ci.outputs.run_triggered == 'toggle') && github.event.inputs.run_validations == 'true' }}
+    uses: ./.github/workflows/run-all-validations.yml
+
+  validate-ci-async:
+    needs: toggle-ci
+    if: ${{ (needs.toggle-ci.outputs.run_triggered == 'add' || needs.toggle-ci.outputs.run_triggered == 'toggle') && github.event.inputs.run_validations == 'validate_async' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post immediate async progress comment and capture ID
+        id: comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ref="${GITHUB_REF##*/}"
+          banner="🟡 **Crest Shimmer CI Validation** — Validations are running in the background\n\n---\n⏳ Live progress will appear here shortly..."
+          # Post comment and capture its ID
+          comment_id=$(gh pr comment "$ref" --body "$banner" --json id --jq '.id' || gh commit comment "$GITHUB_SHA" --body "$banner" --json id --jq '.id')
+          echo "comment_id=$comment_id" >> $GITHUB_OUTPUT
+
+      - name: Trigger validations asynchronously with comment ID and capture run ID
+        id: trigger
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Triggering Run All CI Validations in async mode..."
+          run_id=$(gh workflow run "Run All CI Validations" --ref main -f comment_id=${{ steps.comment.outputs.comment_id }} --json id --jq '.id')
+          echo "run_id=$run_id" >> $GITHUB_OUTPUT
+          echo "🔗 Live validation run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/$run_id"
+
+      - name: Output direct link in logs
+        run: |
+          echo "✅ Validations triggered — toggle workflow will now exit without waiting."
+          echo "🔗 View live progress: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${{ steps.trigger.outputs.run_id }}"
