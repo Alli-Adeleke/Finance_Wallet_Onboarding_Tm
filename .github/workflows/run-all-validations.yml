@@ -13,9 +13,7 @@ on:
         required: false
         type: string
 
-
 jobs:
-  jobs:
   validate-ci:
     runs-on: ubuntu-latest
     steps:
@@ -38,7 +36,7 @@ jobs:
 
           for wf in "${workflows[@]}"; do
             gh workflow run "$wf" --ref main
-            sleep 5  # Give GitHub time to register the run
+            sleep 5
             id=$(gh run list --workflow "$wf" --limit 1 --json databaseId --jq '.[0].databaseId')
             run_ids["$wf"]=$id
           done
@@ -119,4 +117,3 @@ jobs:
       - name: Fail if any workflow failed
         if: steps.poll.outputs.failed == '1'
         run: exit 1
-        shell: bash
