@@ -19,10 +19,8 @@ jobs:
       - name: Install GitHub CLI
         run: sudo apt-get install -y gh jq
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth login --with-token <<< "$GH_TOKEN"
+      - name: GH CLI authentication
+        run: echo "GH CLI will auto-auth using GH_TOKEN — no manual login needed"
 
       - name: Trigger workflows asynchronously
         id: trigger
@@ -60,9 +58,9 @@ jobs:
                 [[ "$conclusion" != "success" ]] && icon="❌" && failed=1
                 summary+="| [${wf}](${url}) | ${icon} ${conclusion} |\n"
 
-                # Update existing comment if comment_id is provided
+                # Update comment if comment_id is provided
                 if [[ -n "$comment_id" ]]; then
-                  crest="🟢"; verdict="In progress..."
+                  crest="🟡"; verdict="Validation in progress..."
                   [[ $failed -ne 0 ]] && crest="🔴" && verdict="Some workflows failing..."
                   banner="${crest} **Crest Shimmer CI Validation** — ${verdict}\n\n---\n"
                   gh api \
@@ -79,31 +77,37 @@ jobs:
           echo -e "$summary" > summary.md
           echo "failed=$failed" >> $GITHUB_OUTPUT
 
-      - name: Finalize comment
+      - name: Finalize ceremonial crest comment
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           comment_id="${{ github.event.inputs.comment_id || inputs.comment_id }}"
-          if [[ "${{ steps.poll.outputs.failed }}" == "0" ]]; then
-            crest="🟢"
-            verdict="All workflows passed"
-          else
-            crest="🔴"
-            verdict="One or more workflows failed"
-          fi
-          banner="${crest} **Crest Shimmer CI Validation** — ${verdict}\n\n---\n"
-          body="$banner$(cat summary.md)"
+          if [[ -f summary.md ]]; then
+            body="$(cat summary.md)"
+            if [[ "${{ steps.poll.outputs.failed }}" == "0" ]]; then
+              crest="🟢"
+              verdict="All workflows passed"
+            else
+              crest="🔴"
+              verdict="One or more workflows failed"
+            fi
+            banner="${crest} **Crest Shimmer CI Validation** — ${verdict}\n\n---\n"
+            full="$banner$body"
 
-          if [[ -n "$comment_id" ]]; then
-            gh api \
-              repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id} \
-              -X PATCH \
-              -f body="$body"
+            if [[ -n "$comment_id" ]]; then
+              gh api \
+                repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id} \
+                -X PATCH \
+                -f body="$full"
+            else
+              gh pr comment "${GITHUB_REF##*/}" --body "$full" || gh commit comment "$GITHUB_SHA" --body "$full"
+            fi
           else
-            gh pr comment "${GITHUB_REF##*/}" --body "$body" || gh commit comment "$GITHUB_SHA" --body "$body"
+            echo "⚠️ summary.md missing — skipping final comment post"
           fi
 
       - name: Fail if any workflow failed
         if: steps.poll.outputs.failed == '1'
         run: exit 1
+        shell: bash 
