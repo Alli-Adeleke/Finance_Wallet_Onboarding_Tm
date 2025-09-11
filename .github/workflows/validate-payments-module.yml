@@ -12,6 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug file tree
+        run: |
+          echo "🔍 Listing Tabs directory"
+          ls -R finance-wallet-onboarding/services/src/components/Tabs
+
       - name: Cache node modules
         uses: actions/cache@v3
         with:
@@ -25,8 +30,8 @@ jobs:
             "finance-wallet-onboarding/services/src/components/Payments/MastercardProvision.tsx"
             "finance-wallet-onboarding/services/src/components/Payments/VisaProvision.tsx"
             "finance-wallet-onboarding/services/src/components/Payments/BitcoinProvision.tsx"
-            "codex/templates/provisioning.yaml"
-            "src/config/tabs.config.ts"
+            "finance-wallet-onboarding/codex/templates/provisioning.yaml"
+            "finance-wallet-onboarding/services/src/config/tabs.config.ts"
           )
           for path in "${required_paths[@]}"; do
             if [ ! -f "$path" ]; then
@@ -42,14 +47,9 @@ jobs:
           npm install
           npm run build
 
-      - name: Validate TypeScript build
-        run: |
-          npm install
-          npm run build
-
       - name: Validate Codex provisioning template
         run: |
-          grep "Payments Module Initialized" codex/templates/provisioning.yaml || {
+          grep "Payments Module Initialized" finance-wallet-onboarding/codex/templates/provisioning.yaml || {
             echo "❌ Codex provisioning event not found"
             exit 1
           }
@@ -57,7 +57,7 @@ jobs:
 
       - name: Confirm tab registry injection
         run: |
-          grep "PaymentsTab" src/config/tabs.config.ts || {
+          grep "PaymentsTab" finance-wallet-onboarding/services/src/config/tabs.config.ts || {
             echo "❌ PaymentsTab not injected into tab registry"
             exit 1
           }
@@ -65,3 +65,4 @@ jobs:
 
       - name: Final shimmer confirmation
         run: echo "🌟 Payments module validation complete — crest shimmer confirmed."
+# --- IGNORE ---
