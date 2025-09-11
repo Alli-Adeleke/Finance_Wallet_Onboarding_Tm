@@ -27,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           declare -A run_ids
-          workflows=("CI" "Pages & CodeQL" "Deploy GitHub Pages with GUI Bootstrap" "Codespaces Prebuild" "pages-build-deployment")
+          workflows=("CI" "Pages & CodeQL" "Deploy GitHub Pages with GUI Bootstrap" "Codespaces Prebuild")
 
           for wf in "${workflows[@]}"; do
             dispatchable=$(gh workflow view "$wf" --yaml | grep -c "workflow_dispatch")
@@ -122,4 +122,3 @@ jobs:
       - name: Fail if any workflow failed
         if: steps.poll.outputs.failed == '1'
         run: exit 1
-  
