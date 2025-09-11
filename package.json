@@ -1,8 +1,0 @@
-{
-  "name": "finance-wallet-onboarding",
-  "private": true,
-  "scripts": {
-    "dev": "echo 'Run your dev servers here'",
-    "test": "echo 'No tests yet'"
-  }
-}
