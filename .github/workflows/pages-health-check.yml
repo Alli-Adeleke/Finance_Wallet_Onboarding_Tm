@@ -1,0 +1,22 @@
+name: Pages Health Check
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Verify Pages deployment
+        run: |
+          echo "🔍 Checking live Pages site..."
+          URL="https://alli-adeleke.github.io/Finance_Wallet_Onboarding_Tm/?cachebust=$(date +%s)"
+          echo "Fetching: $URL"
+          curl -I "$URL"
+          echo "✅ Pages check complete — see headers above for Last-Modified date"
+        
