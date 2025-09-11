@@ -6,11 +6,13 @@ on:
       comment_id:
         description: "ID of the PR/commit comment to update (optional)"
         required: false
+        default: ""
   workflow_call:
     inputs:
       comment_id:
         required: false
         type: string
+
 
 jobs:
   jobs:
