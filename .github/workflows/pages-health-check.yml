@@ -12,6 +12,12 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck --version
+
       - name: Verify Pages deployment
         run: |
           echo "🔍 Checking live Pages site..."
@@ -19,4 +25,3 @@ jobs:
           echo "Fetching: $URL"
           curl -I "$URL"
           echo "✅ Pages check complete — see headers above for Last-Modified date"
-        
