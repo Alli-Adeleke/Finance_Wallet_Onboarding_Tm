@@ -15,10 +15,10 @@ jobs:
       - name: Verify required files exist
         run: |
           required_paths=(
-            "src/components/Tabs/PaymentsTab.tsx"
-            "src/components/Payments/MastercardProvision.tsx"
-            "src/components/Payments/VisaProvision.tsx"
-            "src/components/Payments/BitcoinProvision.tsx"
+            "finance-wallet-onboarding/services/src/components/Tabs/PaymentsTab.tsx"
+            "finance-wallet-onboarding/services/src/components/Payments/MastercardProvision.tsx"
+            "finance-wallet-onboarding/services/src/components/Payments/VisaProvision.tsx"
+            "finance-wallet-onboarding/services/src/components/Payments/BitcoinProvision.tsx"
             "codex/templates/provisioning.yaml"
             "src/config/tabs.config.ts"
           )
