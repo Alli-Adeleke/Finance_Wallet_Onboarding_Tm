@@ -26,10 +26,22 @@ main:
         url: /scripts/bootstrap_pages_gui.sh
       - title: "generate_codex_index.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
         url: /scripts/generate_codex_index.sh
+      - title: "log-codex-entry.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/log-codex-entry.js
+      - title: "regen-admin.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/regen-admin.js
+      - title: "regen-gui.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/regen-gui.js
+      - title: "regen-roles.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/regen-roles.js
       - title: "setup_env_protection.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
         url: /scripts/setup_env_protection.sh
       - title: "setup_guardrails.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
         url: /scripts/setup_guardrails.sh
+      - title: "test-workflows.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/test-workflows.js
+      - title: "validate-payments.js (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/validate-payments.js
   - title: "Assets & Crests"
     children:
       - title: "first-crest.svg (updated %Y->- (grafted, HEAD -> main, origin/main))"
