@@ -1,0 +1,14 @@
+name: Lint Markdown & YAML
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g markdownlint-cli yaml-lint
+      - run: markdownlint '**/*.md' || echo "Markdown lint warnings"
+      - run: yamllint . || echo "YAML lint warnings"
