@@ -18,6 +18,8 @@ main:
         url: /docs/index.md
   - title: "Automation Scripts"
     children:
+      - title: "bootstrap-payments-validation.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
+        url: /scripts/bootstrap-payments-validation.sh
       - title: "bootstrap_full_pages_gui.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
         url: /scripts/bootstrap_full_pages_gui.sh
       - title: "bootstrap_pages_gui.sh (updated %Y->- (grafted, HEAD -> main, origin/main))"
