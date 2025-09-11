@@ -113,7 +113,8 @@ jobs:
                 -X PATCH \
                 -f body="$full"
             else
-              gh pr comment "${GITHUB_REF##*/}" --body "$full" || gh commit comment "$GITHUB_SHA" --body "$full"
+              gh pr comment "${GITHUB_REF##*/}" --body "$full" || \
+              gh api repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments -X POST -f body="$full"
             fi
           else
             echo "⚠️ summary.md missing — skipping final comment post"
