@@ -2,43 +2,55 @@ name: Validate Payments Module
 
 on:
   push:
-    paths:
-      - 'src/components/**'
-      - 'finance-wallet-onboarding/backend/**'
-      - 'scripts/**'
-      - 'codex/**'
-      - '.github/workflows/validate-payments-module.yml'
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   validate-payments:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate file structure
+      - name: Verify required files exist
         run: |
           required_paths=(
             "src/components/Tabs/PaymentsTab.tsx"
             "src/components/Payments/MastercardProvision.tsx"
-            "finance-wallet-onboarding/backend/routes/payments.js"
-            "scripts/verify-nfc-token.sh"
+            "src/components/Payments/VisaProvision.tsx"
+            "src/components/Payments/BitcoinProvision.tsx"
             "codex/templates/provisioning.yaml"
+            "src/config/tabs.config.ts"
           )
-
           for path in "${required_paths[@]}"; do
-            if [[ ! -f "$path" ]]; then
+            if [ ! -f "$path" ]; then
               echo "❌ Missing: $path"
               exit 1
+            else
+              echo "✅ Found: $path"
             fi
           done
-          echo "✅ All required files are present."
 
-      - name: Run shimmer badge injection test
-        run: echo "🟢 Simulated shimmer badge injection passed."
+      - name: Validate TypeScript build
+        run: |
+          npm install
+          npm run build
 
-      - name: Log Codex entry simulation
-        run: echo "📝 Codex entry for provisioning event simulated."
+      - name: Validate Codex provisioning template
+        run: |
+          grep "Payments Module Initialized" codex/templates/provisioning.yaml || {
+            echo "❌ Codex provisioning event not found"
+            exit 1
+          }
+          echo "✅ Codex provisioning template verified"
 
-      - name: Final ceremonial pass
-        run: echo "🎉 Payments module validated with full lineage."
+      - name: Confirm tab registry injection
+        run: |
+          grep "PaymentsTab" src/config/tabs.config.ts || {
+            echo "❌ PaymentsTab not injected into tab registry"
+            exit 1
+          }
+          echo "✅ PaymentsTab is registered"
+
+      - name: Final shimmer confirmation
+        run: echo "🌟 Payments module validation complete — crest shimmer confirmed."

@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  
+
 permissions:
   contents: read
   pages: write
@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'javascript', 'python' ] # adjust to your repo's languages
+        language: [ 'javascript', 'python', 'javascript-typescript' ] # adjust to your repo's languages
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
