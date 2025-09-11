@@ -43,9 +43,12 @@ jobs:
           done
 
       - name: Validate TypeScript build
+        working-directory: finance-wallet-onboarding
         run: |
           npm install
-          npm run build
+          npm run build 
+          echo "✅ TypeScript build successful"
+
 
       - name: Validate Codex provisioning template
         run: |
