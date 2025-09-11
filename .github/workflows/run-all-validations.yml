@@ -1,6 +1,12 @@
 name: Run All CI Validations
 
 on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+
+on:
   workflow_dispatch:
     inputs:
       comment_id:
